@@ -1,10 +1,10 @@
 {
-  "name": "template",
+  "name": "market-simulator",
   "private": true,
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "prepare": "yarn install; yarn workspaces foreach run prepare",
+    "prepare": "yarn install; yarn workspaces foreach -Api run prepare",
     "dev": "yarn workspaces foreach -Api run dev",
     "build": "yarn workspaces foreach -Api run build",
     "start": "yarn workspaces foreach -Api run start"
