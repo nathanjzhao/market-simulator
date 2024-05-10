@@ -1,11 +1,12 @@
 from random import randint
 from typing import Set, Any, List
-from fastapi import Depends, FastAPI, Query
+from fastapi import Depends, FastAPI, Query, HTTPException
 from fastapi.responses import StreamingResponse 
 from fastapi.middleware.cors import CORSMiddleware
 from kafka import TopicPartition
 from aiokafka.helpers import create_ssl_context
 
+import dataclasses
 import uvicorn
 import aiokafka
 import asyncio
@@ -25,9 +26,14 @@ load_dotenv()
 app = FastAPI()
 app.include_router(user_router)
 
+origins = [
+    "http://localhost:3000",  # Allow frontend origin during development
+    # "https://your-production-frontend-url.com",  # Allow frontend origin in production
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allows all origins
+    allow_origins=origins,  # Allows all origins
     allow_credentials=True,
     allow_methods=["*"],  # Allows all methods
     allow_headers=["*"],  # Allows all headers
@@ -39,7 +45,7 @@ consumer = None
 _state = 0
 
 # env variables
-KAFKA_TOPIC = os.getenv('KAFKA_TOPIC')
+KAFKA_TOPICS = os.getenv('KAFKA_TOPICS').split(',')
 KAFKA_CONSUMER_GROUP_PREFIX = os.getenv('KAFKA_CONSUMER_GROUP_PREFIX', 'group')
 KAFKA_BOOTSTRAP_SERVERS = os.getenv('KAFKA_BOOTSTRAP_SERVERS', 'localhost:9092')
 KAFKA_USERNAME = os.getenv('KAFKA_USERNAME')
@@ -92,7 +98,7 @@ async def send_request():
         value = {'timestamp': timestamp, 'symbol': 'AAPL', 'dir': 'BUY', 'price': randint(1, 100)}
         log.info(f'Sending message with value: {value}')
         value_json = json.dumps(value).encode('utf-8')
-        await producer.send_and_wait(KAFKA_TOPIC, value_json)
+        await producer.send_and_wait(KAFKA_TOPICS, value_json)
     finally:
         # wait for all pending messages to be delivered or expire.
         await producer.stop()
@@ -102,28 +108,34 @@ async def send_request():
 
 MAX_MESSAGES = 10
 
-@app.post("/get_stream")
-async def get_stream(topics: List[str] = Query(default=["market"]), current_user: str = Depends(get_current_user)):
+@app.get("/topics")
+async def topics(current_user: str = Depends(get_current_user)):
+    return {"topics" : KAFKA_TOPICS}
+
+@app.get("/stream")
+async def stream(topics: List[str] = Query(default=["market"]), current_user: str = Depends(get_current_user)):
     loop = asyncio.get_event_loop()
-    group_id = f'{KAFKA_CONSUMER_GROUP_PREFIX}-{randint(0, 10000)}'
-    consumer = aiokafka.AIOKafkaConsumer(*topics, loop=loop,
-                                         bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS,
-                                         ssl_context=create_ssl_context(),
-                                         sasl_mechanism='SCRAM-SHA-256',
-                                         security_protocol='SASL_SSL',
-                                         sasl_plain_username=KAFKA_USERNAME,
-                                         sasl_plain_password=KAFKA_PASSWORD,
-                                         group_id=group_id,
-                                         auto_offset_reset='earliest')
-    # get cluster layout and join group KAFKA_CONSUMER_GROUP
-    await consumer.start()
+    for topic in topics:
+        if topic not in KAFKA_TOPICS:
+            raise HTTPException(status_code=400, detail=f"Invalid topic: {topic}")
+        
+    # Subscribe the consumer to the topics
+    consumer.subscribe(topics)
 
     async def stream():
         count = 0
         try:
             async for msg in consumer:
                 count += 1
-                yield json.dumps(msg).encode('utf-8') + b'\n'
+
+                data = {
+                    'topic': msg.topic,
+                    'partition': msg.partition,
+                    'offset': msg.offset,
+                    'key': msg.key.decode('utf-8') if msg.key else None,
+                    'value': json.loads(msg.value),
+                }
+                yield json.dumps(data).encode('utf-8') + b'\n'
                 if count >= MAX_MESSAGES:
                     break
         finally:
@@ -135,10 +147,10 @@ async def initialize():
     loop = asyncio.get_event_loop()
     global consumer
     group_id = f'{KAFKA_CONSUMER_GROUP_PREFIX}-{randint(0, 10000)}'
-    log.info(f'Initializing KafkaConsumer for topic {KAFKA_TOPIC}, group_id {group_id}'
+    log.info(f'Initializing KafkaConsumer for topic {KAFKA_TOPICS}, group_id {group_id}'
               f' and using bootstrap servers {KAFKA_BOOTSTRAP_SERVERS}')
     
-    consumer = aiokafka.AIOKafkaConsumer(KAFKA_TOPIC, loop=loop,
+    consumer = aiokafka.AIOKafkaConsumer(*KAFKA_TOPICS, loop=loop,
                                          bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS,
                                          ssl_context=create_ssl_context(),
                                          sasl_mechanism='SCRAM-SHA-256',
@@ -154,7 +166,7 @@ async def initialize():
     nr_partitions = len(partitions)
 
     if nr_partitions != 1:
-        log.warning(f'Found {nr_partitions} partitions for topic {KAFKA_TOPIC}. Expecting '
+        log.warning(f'Found {nr_partitions} partitions for topic {KAFKA_TOPICS}. Expecting '
                     f'only one, remaining partitions will be ignored!')
         
     for tp in partitions:
@@ -164,7 +176,7 @@ async def initialize():
         end_offset = end_offset_dict[tp]
 
         if end_offset == 0:
-            log.warning(f'Topic ({KAFKA_TOPIC}) has no messages (log_end_offset: '
+            log.warning(f'Topic ({KAFKA_TOPICS}) has no messages (log_end_offset: '
                         f'{end_offset}), skipping initialization ...')
             return
 

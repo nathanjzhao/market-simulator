@@ -3,26 +3,25 @@ import { useRouter } from 'next/router';
 import { useState } from 'react';
 
 export default function Register() {
+  const router = useRouter();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
 
   const register = async (event: { preventDefault: () => void; }) => {
     event.preventDefault();
 
-    const router = useRouter();
-    
-    const data = {
+    const body = {
       username: username,
       password: password
     };
 
-    let response = await fetchData('http://localhost:8000/register', 'POST', data);
+    const response = await fetchData('http://localhost:8000/register', 'POST', body);
 
-    response = await response.json();
+    const data = await response.json();
 
-    if (response.ok && response.access_token) {
+    if (response.ok && data.access_token) {
       // Store the access token in local storage
-      localStorage.setItem('access_token', response.access_token);
+      localStorage.setItem('access_token', data.access_token);
 
       console.log('Registration successful', data);
       router.push('/test');
