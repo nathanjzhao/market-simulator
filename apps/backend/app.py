@@ -1,11 +1,14 @@
 from random import randint
 from typing import Set, Any, List
-from fastapi import Depends, FastAPI, Query, HTTPException
+
+
+from fastapi import Depends, FastAPI, Response, Query, Body, HTTPException
 from fastapi.responses import StreamingResponse 
 from fastapi.middleware.cors import CORSMiddleware
 from kafka import TopicPartition
 from aiokafka.helpers import create_ssl_context
 
+from starlette.concurrency import run_until_first_complete
 import dataclasses
 import uvicorn
 import aiokafka
@@ -106,42 +109,24 @@ async def send_request():
     return {"message": "Message sent"}
 
 
-MAX_MESSAGES = 10
+MAX_MESSAGES = 1000
 
 @app.get("/topics")
 async def topics(current_user: str = Depends(get_current_user)):
     return {"topics" : KAFKA_TOPICS}
 
-@app.get("/stream")
-async def stream(topics: List[str] = Query(default=["market"]), current_user: str = Depends(get_current_user)):
-    loop = asyncio.get_event_loop()
-    for topic in topics:
-        if topic not in KAFKA_TOPICS:
-            raise HTTPException(status_code=400, detail=f"Invalid topic: {topic}")
-        
-    # Subscribe the consumer to the topics
-    consumer.subscribe(topics)
+@app.post("/stream")
+async def stream(topics: List[str] = Body(default=["market"]), current_user: str = Depends(get_current_user)):
+    async def event_stream():
+        old_state = _state
+        while True:
+            if old_state != _state:
+            # if old_state != _state and _state['topic'] in topics:
+                old_state = _state
+                yield f"data: {_state}\n\n"
+            await asyncio.sleep(1)  # Sleep for a bit to prevent busy-waiting
 
-    async def stream():
-        count = 0
-        try:
-            async for msg in consumer:
-                count += 1
-
-                data = {
-                    'topic': msg.topic,
-                    'partition': msg.partition,
-                    'offset': msg.offset,
-                    'key': msg.key.decode('utf-8') if msg.key else None,
-                    'value': json.loads(msg.value),
-                }
-                yield json.dumps(data).encode('utf-8') + b'\n'
-                if count >= MAX_MESSAGES:
-                    break
-        finally:
-            await consumer.stop()
-
-    return StreamingResponse(stream(), media_type="application/json")
+    return StreamingResponse(event_stream(), media_type="text/event-stream")
 
 async def initialize():
     loop = asyncio.get_event_loop()
@@ -189,11 +174,9 @@ async def initialize():
         _update_state(msg)
         return
 
-
 async def consume():
     global consumer_task
     consumer_task = asyncio.create_task(send_consumer_message(consumer))
-
 
 async def send_consumer_message(consumer):
     try:
@@ -201,6 +184,7 @@ async def send_consumer_message(consumer):
         async for msg in consumer:
             # x = json.loads(msg.value)
             log.info(f"Consumed msg: {msg}")
+            
 
             # update the API state
             _update_state(msg)

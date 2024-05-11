@@ -1,3 +1,4 @@
+from dotenv import load_dotenv
 import aiokafka
 from aiokafka.helpers import create_ssl_context
 import asyncio
@@ -5,9 +6,10 @@ import json
 import os
 from random import randint
 
+load_dotenv()
 
 # env variables
-KAFKA_TOPIC = os.getenv('KAFKA_TOPIC')
+KAFKA_TOPICS = os.getenv('KAFKA_TOPICS').split(',')
 KAFKA_BOOTSTRAP_SERVERS = os.getenv('KAFKA_BOOTSTRAP_SERVERS', 'localhost:9092')
 KAFKA_USERNAME = os.getenv('KAFKA_USERNAME')
 KAFKA_PASSWORD = os.getenv('KAFKA_PASSWORD')
@@ -17,7 +19,7 @@ loop = asyncio.get_event_loop()
 
 
 async def send_one():
-    producer = aiokafka.AIOKafkaProducer(KAFKA_TOPIC, loop=loop,
+    producer = aiokafka.AIOKafkaProducer(loop=loop,
                                          bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS,
                                          ssl_context=create_ssl_context(),
                                          sasl_mechanism='SCRAM-SHA-256',
@@ -32,7 +34,7 @@ async def send_one():
         value = {'message_id': msg_id, 'text': 'some text', 'state': randint(1, 100)}
         print(f'Sending message with value: {value}')
         value_json = json.dumps(value).encode('utf-8')
-        await producer.send_and_wait(KAFKA_TOPIC, value_json)
+        await producer.send_and_wait(KAFKA_TOPICS[0], value_json)
     finally:
         # wait for all pending messages to be delivered or expire.
         await producer.stop()
