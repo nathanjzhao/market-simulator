@@ -15,7 +15,7 @@ export default function Register() {
       password: password
     };
 
-    const response = await fetchData('http://localhost:8000/register', 'POST', body);
+    const response = await fetchData(`${process.env.NEXT_PUBLIC_BACKEND_URL}/register`, 'POST', body);
 
     const data = await response.json();
 

@@ -1,10 +1,7 @@
-from decimal import ROUND_DOWN, Decimal
-from sqlalchemy import create_engine, text, Column, Integer, String
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.ext.declarative import declarative_base
-from pydantic import BaseModel, validator
-from typing import Literal
 from dotenv import load_dotenv
 import os
 
@@ -16,28 +13,7 @@ engine = create_engine(SQLALCHEMY_DATABASE_URL, echo=True)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()
-
-class MarketMessage(BaseModel):
-    timestamp: int
-    symbol: str
-    dir: Literal['BUY', 'SELL']
-    price: Decimal
-
-    @validator('price', pre=True)
-    def round_price(cls, v):
-        return Decimal(v).quantize(Decimal('0.00'), rounding=ROUND_DOWN)
     
-class User(Base):
-    __tablename__ = "users"
-
-    id = Column(Integer, primary_key=True, index=True)
-    username = Column(String, unique=True, index=True)
-    password = Column(String)
-
-    def __repr__(self):
-        return "<User(username='%s')>" % (
-                           self.username)
-
 def get_db():
     db = SessionLocal()
     try:

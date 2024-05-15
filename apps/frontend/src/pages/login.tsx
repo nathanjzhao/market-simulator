@@ -15,7 +15,7 @@ export default function Login() {
       password: password
     };
 
-    const response = await fetchData('http://localhost:8000/login', 'POST', body);
+    const response = await fetchData(`${process.env.NEXT_PUBLIC_BACKEND_URL}/login`, 'POST', body);
 
     const data = await response.json();
 

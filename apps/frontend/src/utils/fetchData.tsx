@@ -1,6 +1,6 @@
-async function fetchData(url: string, method: string, data: Record<string, unknown>, token?: string) {
+async function fetchData(url: string, method: string, data: Record<string, unknown>, token?: string | null, contentType: string = 'application/x-www-form-urlencoded') {
   const headers: Record<string, string> = {
-    'Content-Type': 'application/x-www-form-urlencoded'
+    'Content-Type': contentType
   };
 
   if (token) {
@@ -30,7 +30,11 @@ async function fetchData(url: string, method: string, data: Record<string, unkno
 
     finalUrl = `${url}?${params.toString()}`;
   } else {
-    body = new URLSearchParams(data as Record<string, string>).toString();
+    if (headers['Content-Type'] === 'application/json') {
+      body = JSON.stringify(data);
+    } else {
+      body = new URLSearchParams(data as Record<string, string>).toString();
+    }
   }
 
   const response = await fetch(finalUrl, {

@@ -38,6 +38,7 @@ export const useManualServerSentEvents = (url: string, body: any, token?: string
                         try {
                             // Adjusting for SSE format by stripping 'data: ' prefix and trimming any remaining whitespace
                             const jsonStr = str.replace(/^data: /, '').trim();
+                            console.log(jsonStr)
                             const newMessage = JSON.parse(jsonStr);
                             console.log(newMessage);  // Log the new message
                             setMessages((prevMessages) => [...prevMessages, newMessage]);

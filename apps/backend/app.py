@@ -1,16 +1,14 @@
 from random import randint
-from typing import Set, Any, List
+import time
+from typing import Dict, Set, Any, List
+import uuid
 
-
-from fastapi import Depends, FastAPI, Response, Query, Body, HTTPException
+from fastapi import Depends, FastAPI, Request, Response, Query, Body, HTTPException
 from fastapi.responses import StreamingResponse 
 from fastapi.middleware.cors import CORSMiddleware
 from kafka import TopicPartition
 from aiokafka.helpers import create_ssl_context
 
-from starlette.concurrency import run_until_first_complete
-import dataclasses
-import uvicorn
 import aiokafka
 import asyncio
 import json
@@ -19,9 +17,11 @@ from datetime import datetime
 from dotenv import load_dotenv
 import os
 
-from backend.utils.auth import authenticate_user, get_current_user
-from backend.utils.db import get_db, Base, engine, User
+from backend.utils.auth import get_current_user
+from backend.utils.db import get_db, Base, engine
+from backend.utils.schema import MarketRequestMessage
 from .user_routes import router as user_router
+
 
 load_dotenv()
 
@@ -45,14 +45,17 @@ app.add_middleware(
 # global variables
 consumer_task = None
 consumer = None
+producer = None
 _state = 0
 
 # env variables
-KAFKA_TOPICS = os.getenv('KAFKA_TOPICS').split(',')
+KAFKA_TOPIC = os.getenv('KAFKA_TOPIC')
 KAFKA_CONSUMER_GROUP_PREFIX = os.getenv('KAFKA_CONSUMER_GROUP_PREFIX', 'group')
 KAFKA_BOOTSTRAP_SERVERS = os.getenv('KAFKA_BOOTSTRAP_SERVERS', 'localhost:9092')
 KAFKA_USERNAME = os.getenv('KAFKA_USERNAME')
 KAFKA_PASSWORD = os.getenv('KAFKA_PASSWORD')
+
+SYMBOLS = os.getenv('SYMBOLS').split(',')
 
 # initialize logger
 logging.basicConfig(format='%(asctime)s - %(levelname)s - %(message)s',
@@ -74,6 +77,8 @@ async def shutdown_event():
     consumer_task.cancel()
     if consumer:
         await consumer.stop()
+    if producer:
+        await producer.stop()
 
 @app.get("/")
 async def root():
@@ -83,42 +88,16 @@ async def root():
 async def state():
     return {"state": _state}
 
-@app.get("/send_request")
-async def send_request():
-    loop = asyncio.get_event_loop()
-    producer = aiokafka.AIOKafkaProducer(loop=loop,
-                                         bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS,
-                                         ssl_context=create_ssl_context(),
-                                         sasl_mechanism='SCRAM-SHA-256',
-                                         security_protocol='SASL_SSL',
-                                         sasl_plain_username=KAFKA_USERNAME,
-                                         sasl_plain_password=KAFKA_PASSWORD)
-    # get cluster layout and initial topic/partition leadership information
-    await producer.start()
-    try:
-        # produce message
-        timestamp = datetime.now().isoformat()
-        value = {'timestamp': timestamp, 'symbol': 'AAPL', 'dir': 'BUY', 'price': randint(1, 100)}
-        log.info(f'Sending message with value: {value}')
-        value_json = json.dumps(value).encode('utf-8')
-        await producer.send_and_wait(KAFKA_TOPICS, value_json)
-    finally:
-        # wait for all pending messages to be delivered or expire.
-        await producer.stop()
 
-    return {"message": "Message sent"}
-
-
-MAX_MESSAGES = 1000
-
-@app.get("/topics")
-async def topics(current_user: str = Depends(get_current_user)):
-    return {"topics" : KAFKA_TOPICS}
+@app.get("/symbols")
+async def symbols(current_user: str = Depends(get_current_user)):
+    return {"symbols" : SYMBOLS}
 
 @app.post("/stream")
-async def stream(topics: List[str] = Body(default=["market"]), current_user: str = Depends(get_current_user)):
+async def stream(symbols: List[str] = Body(default=["AAPL"]), current_user: str = Depends(get_current_user)):
     async def event_stream():
         old_state = _state
+        yield 'data: {"message": "event stream connected"}'
         while True:
             if old_state != _state:
             # if old_state != _state and _state['topic'] in topics:
@@ -127,15 +106,42 @@ async def stream(topics: List[str] = Body(default=["market"]), current_user: str
             await asyncio.sleep(1)  # Sleep for a bit to prevent busy-waiting
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")
+ 
+@app.post("/market_request")
+async def add_market_request(request: MarketRequestMessage, current_user: str = Depends(get_current_user)):
+    # Convert the request to a dict so it can be serialized to JSON
+    request_dict = request.dict()
 
+    request_dict['op'] = 'Created'
+    request_dict['id'] = str(uuid.uuid4())
+    request_dict['timestamp'] = int(time.time())
+
+    request_json = json.dumps(request_dict).encode('utf-8')
+    # Send the market request to a Kafka topic
+    await producer.send_and_wait(KAFKA_TOPIC, request_json)
+
+    return {"message": "Market request added", "request": request_dict}
+    
 async def initialize():
-    loop = asyncio.get_event_loop()
+    producer_loop = asyncio.get_event_loop()
+    consumer_loop = asyncio.get_event_loop()
+    global producer
     global consumer
+
+    producer = aiokafka.AIOKafkaProducer(loop=producer_loop,
+                                bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS,
+                                ssl_context=create_ssl_context(),
+                                sasl_mechanism='SCRAM-SHA-256',
+                                security_protocol='SASL_SSL',
+                                sasl_plain_username=KAFKA_USERNAME,
+                                sasl_plain_password=KAFKA_PASSWORD)
+    await producer.start()
+    
     group_id = f'{KAFKA_CONSUMER_GROUP_PREFIX}-{randint(0, 10000)}'
-    log.info(f'Initializing KafkaConsumer for topic {KAFKA_TOPICS}, group_id {group_id}'
+    log.info(f'Initializing KafkaConsumer for topic {KAFKA_TOPIC}, group_id {group_id}'
               f' and using bootstrap servers {KAFKA_BOOTSTRAP_SERVERS}')
     
-    consumer = aiokafka.AIOKafkaConsumer(*KAFKA_TOPICS, loop=loop,
+    consumer = aiokafka.AIOKafkaConsumer(KAFKA_TOPIC, loop=consumer_loop,
                                          bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS,
                                          ssl_context=create_ssl_context(),
                                          sasl_mechanism='SCRAM-SHA-256',
@@ -151,7 +157,7 @@ async def initialize():
     nr_partitions = len(partitions)
 
     if nr_partitions != 1:
-        log.warning(f'Found {nr_partitions} partitions for topic {KAFKA_TOPICS}. Expecting '
+        log.warning(f'Found {nr_partitions} partitions for topic {KAFKA_TOPIC}. Expecting '
                     f'only one, remaining partitions will be ignored!')
         
     for tp in partitions:
@@ -161,7 +167,7 @@ async def initialize():
         end_offset = end_offset_dict[tp]
 
         if end_offset == 0:
-            log.warning(f'Topic ({KAFKA_TOPICS}) has no messages (log_end_offset: '
+            log.warning(f'Topic ({KAFKA_TOPIC}) has no messages (log_end_offset: '
                         f'{end_offset}), skipping initialization ...')
             return
 
@@ -182,10 +188,8 @@ async def send_consumer_message(consumer):
     try:
         # consume messages
         async for msg in consumer:
-            # x = json.loads(msg.value)
             log.info(f"Consumed msg: {msg}")
             
-
             # update the API state
             _update_state(msg)
     finally:
@@ -197,6 +201,6 @@ def _update_state(message: Any) -> None:
     if message.value:
         value = json.loads(message.value)
         global _state
-        _state = value['state']
+        _state = value
     else:
         log.warning("Received empty message")

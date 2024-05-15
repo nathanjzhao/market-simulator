@@ -9,7 +9,7 @@ from random import randint
 load_dotenv()
 
 # env variables
-KAFKA_TOPICS = os.getenv('KAFKA_TOPICS').split(',')
+KAFKA_TOPIC = os.getenv('KAFKA_TOPIC')
 KAFKA_BOOTSTRAP_SERVERS = os.getenv('KAFKA_BOOTSTRAP_SERVERS', 'localhost:9092')
 KAFKA_USERNAME = os.getenv('KAFKA_USERNAME')
 KAFKA_PASSWORD = os.getenv('KAFKA_PASSWORD')
@@ -31,10 +31,10 @@ async def send_one():
     try:
         # produce message
         msg_id = f'{randint(1, 10000)}'
-        value = {'message_id': msg_id, 'text': 'some text', 'state': randint(1, 100)}
+        value = {'id': msg_id, 'dir': 'BUY', 'price': 23.02, 'symbol': 'AAPL', 'op' : 'Created', 'timestamp': 1234567890}
         print(f'Sending message with value: {value}')
         value_json = json.dumps(value).encode('utf-8')
-        await producer.send_and_wait(KAFKA_TOPICS[0], value_json)
+        await producer.send_and_wait(KAFKA_TOPIC, value_json)
     finally:
         # wait for all pending messages to be delivered or expire.
         await producer.stop()

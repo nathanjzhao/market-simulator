@@ -6,7 +6,9 @@ from sqlalchemy.orm import Session
 from dotenv import load_dotenv
 import os
 from passlib.context import CryptContext
-from backend.utils.db import User, get_db
+
+from backend.utils.db import get_db
+from backend.utils.schema import User
 
 load_dotenv()
 
