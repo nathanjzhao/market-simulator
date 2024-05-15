@@ -6,6 +6,8 @@ import makeAnimated from 'react-select/animated';
 import { useRouter } from 'next/router';
 import { useManualServerSentEvents } from '@/hook/useManualServerSentEvents';
 import { Input } from '@/components/ui/input';
+import { DataTable } from '@/components/data-table';
+import { columns, Transaction } from '@/components/columns';
 
 const animatedComponents = makeAnimated();
 
@@ -87,6 +89,10 @@ export default function Test() {
     return messages.join('').replace(/\n\n/g, '<br /><br />');
   }, [messages]);
 
+  useEffect(() => {
+    console.log("inside messages!!", messages);  // Log the new message
+  }, [messages]);
+
   return (
     <div>
       <div className="my-6">
@@ -155,7 +161,12 @@ export default function Test() {
       >
         Stop Fetching Stream
       </button>
-      <div className="mt-4 p-2 bg-gray-100 rounded shadow" dangerouslySetInnerHTML={{__html: combinedMessages}}/>
+
+      <div className="container mx-auto py-10">
+        <DataTable columns={columns} data={messages as unknown as Transaction[]} />
+      </div>
+
+      {/* <div className="mt-4 p-2 bg-gray-100 rounded shadow" dangerouslySetInnerHTML={{__html: combinedMessages}}/> */}
     </div>
   );
 };

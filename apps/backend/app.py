@@ -97,12 +97,11 @@ async def symbols(current_user: str = Depends(get_current_user)):
 async def stream(symbols: List[str] = Body(default=["AAPL"]), current_user: str = Depends(get_current_user)):
     async def event_stream():
         old_state = _state
-        yield 'data: {"message": "event stream connected"}'
         while True:
             if old_state != _state:
             # if old_state != _state and _state['topic'] in topics:
                 old_state = _state
-                yield f"data: {_state}\n\n"
+                yield f'data: {_state}\n\n'
             await asyncio.sleep(1)  # Sleep for a bit to prevent busy-waiting
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")
