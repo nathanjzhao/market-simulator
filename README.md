@@ -1,1 +1,2 @@
-Template Repository for projects!
+# Market Simulator
+A market simulator

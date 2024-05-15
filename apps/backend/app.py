@@ -19,7 +19,7 @@ import os
 
 from backend.utils.auth import get_current_user
 from backend.utils.db import get_db, Base, engine
-from backend.utils.schema import MarketRequestMessage
+from backend.utils.schema import DecimalEncoder, MarketRequestMessage
 from .user_routes import router as user_router
 
 
@@ -114,8 +114,10 @@ async def add_market_request(request: MarketRequestMessage, current_user: str = 
     request_dict['op'] = 'Created'
     request_dict['id'] = str(uuid.uuid4())
     request_dict['timestamp'] = int(time.time())
+    request_dict['user'] = current_user.username
 
-    request_json = json.dumps(request_dict).encode('utf-8')
+    request_json = json.dumps(request_dict, cls=DecimalEncoder).encode('utf-8')
+
     # Send the market request to a Kafka topic
     await producer.send_and_wait(KAFKA_TOPIC, request_json)
 

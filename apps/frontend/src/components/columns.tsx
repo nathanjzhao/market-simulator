@@ -7,9 +7,11 @@ export type Transaction = {
   dir: string
   id: string
   op: string
+  count: string
   price: string
   symbol: string
   timestamp: number
+  user: string
 }
 
 export const columns: ColumnDef<Transaction>[] = [
@@ -22,11 +24,19 @@ export const columns: ColumnDef<Transaction>[] = [
     header: "Symbol",
   },
   {
+    accessorKey: "price",
+    header: "Price",
+  },
+  {
+    accessorKey: "count",
+    header: "#",
+  },
+  {
     accessorKey: "op",
     header: "Operation",
   },
   {
-    accessorKey: "price",
-    header: "Price",
+    accessorKey: "user",
+    header: "User",
   },
 ]

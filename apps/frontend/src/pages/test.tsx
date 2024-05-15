@@ -25,6 +25,7 @@ export default function Test() {
   const [selectedSymbol, setselectedSymbol] = useState([]);
   const [direction, setDirection] = useState(dirOptions[0].value);
   const [price, setPrice] = useState('');
+  const [count, setCount] = useState('');
 
   // Market viewing
   const [selectedViewSymbols, setSelectedViewSymbols] = useState([]);
@@ -60,7 +61,8 @@ export default function Test() {
     const body = {
       symbol: selectedSymbol,
       dir: direction,
-      price: parseFloat(price).toFixed(2)
+      price: parseFloat(price).toFixed(2),
+      count: parseInt(count)
       // Include other parameters as needed
     }
     console.log(`Formatted price type: ${typeof body['price']}`);
@@ -122,6 +124,19 @@ export default function Test() {
             const newPrice = event.target.value;
             if (newPrice === '' || /^[0-9]*(\.[0-9]{0,2})?$/.test(newPrice)) {
               setPrice(newPrice);
+            }
+          }}
+        />
+        
+        <Input 
+          type="text" 
+          placeholder="Count" 
+          className='my-4'
+          value={count}
+          onChange={(event) => {
+            const newCount = event.target.value;
+            if (newCount === '' || /^[0-9]+$/.test(newCount)) {
+              setCount(newCount);
             }
           }}
         />
