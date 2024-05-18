@@ -1,5 +1,6 @@
 import json
-from sqlalchemy import Column, Integer, String
+from sqlalchemy import Column, Integer, String, ForeignKey 
+from sqlalchemy.orm import relationship
 from pydantic import BaseModel, validator
 from decimal import Decimal, ROUND_DOWN
 from typing import Literal
@@ -24,11 +25,22 @@ class User(Base):
         return "<User(username='%s')>" % (
                            self.username)
 
+class Leaderboard(Base):
+    __tablename__ = "leaderboard"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey('users.id'))
+    score = Column(Integer)
+
+    user = relationship("User", back_populates="leaderboard")
+
+User.leaderboard = relationship("Leaderboard", order_by=Leaderboard.id, back_populates="user")
+
 class MarketRequestMessage(BaseModel):
     symbol: str
     dir: Literal['BUY', 'SELL']
     price: Decimal
-    count: int
+    shares: int
 
     @validator('price', pre=True)
     def round_price(cls, v):

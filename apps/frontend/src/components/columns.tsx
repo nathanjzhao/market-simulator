@@ -14,7 +14,7 @@ export type Transaction = {
   user: string
 }
 
-export const columns: ColumnDef<Transaction>[] = [
+export const transactionColumns: ColumnDef<Transaction>[] = [
   {
     accessorKey: "dir",
     header: "Direction",
@@ -28,7 +28,7 @@ export const columns: ColumnDef<Transaction>[] = [
     header: "Price",
   },
   {
-    accessorKey: "count",
+    accessorKey: "shares",
     header: "#",
   },
   {
@@ -38,5 +38,31 @@ export const columns: ColumnDef<Transaction>[] = [
   {
     accessorKey: "user",
     header: "User",
+  },
+]
+
+export type OrderBookSymbol = {
+  dir: string
+  id: string
+  op: string
+  count: string
+  price: string
+  symbol: string
+  timestamp: number
+  user: string
+}
+
+export const orderbookColumns: ColumnDef<OrderBookSymbol>[] = [
+  {
+    accessorKey: "Price",
+    header: "Price",
+  },
+  {
+    accessorKey: "Shares",
+    header: "Shares",
+  },
+  {
+    accessorKey: "Timestamp",
+    header: "Timestamp",
   },
 ]

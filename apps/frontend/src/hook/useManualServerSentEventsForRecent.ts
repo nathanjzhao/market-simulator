@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 
-export const useManualServerSentEvents = (url: string, body: any, token?: string) => {
+export const useManualServerSentEventsForRecent = (url: string, body: any, token?: string) => {
     const [messages, setMessages] = useState<string[]>([]);
     const [controller, setController] = useState<AbortController | null>(null);
 
@@ -41,8 +41,7 @@ export const useManualServerSentEvents = (url: string, body: any, token?: string
                             // Replace single quotes with double quotes
                             const doubleQuotedJsonStr = jsonStr.replace(/'/g, '"');
                             const newMessage = JSON.parse(doubleQuotedJsonStr);
-                            setMessages((prevMessages) => [...prevMessages, newMessage]);
-                            console.log("inside messages", messages);  // Log the new message
+                            setMessages(newMessage);
                         } catch (error) {
                             console.error("Error parsing message:", error);
                         }

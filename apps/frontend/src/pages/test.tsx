@@ -7,7 +7,7 @@ import { useRouter } from 'next/router';
 import { useManualServerSentEvents } from '@/hook/useManualServerSentEvents';
 import { Input } from '@/components/ui/input';
 import { DataTable } from '@/components/data-table';
-import { columns, Transaction } from '@/components/columns';
+import { Transaction, transactionColumns } from '@/components/columns';
 
 const animatedComponents = makeAnimated();
 
@@ -19,13 +19,14 @@ const dirOptions = [
 
 export default function Test() {
   const router = useRouter();
+  const [symbols, setSymbols] = useState([]);
+  const [symbolsForDropdown, setSymbolsForDropdown] = useState([]);
 
   // Request making
-  const [symbols, setSymbols] = useState([]);
   const [selectedSymbol, setselectedSymbol] = useState([]);
   const [direction, setDirection] = useState(dirOptions[0].value);
   const [price, setPrice] = useState('');
-  const [count, setCount] = useState('');
+  const [shares, setShares] = useState('');
 
   // Market viewing
   const [selectedViewSymbols, setSelectedViewSymbols] = useState([]);
@@ -45,12 +46,12 @@ export default function Test() {
       }
 
       const data = await response.json()
-      const symbols = data.symbols.map((symbol: string) => ({
+      const symbolsForDropdown = data.symbols.map((symbol: string) => ({
         value: symbol,
         label: symbol.toUpperCase(),
       }));
-      setSymbols(symbols);
-      
+      setSymbols(data.symbols);
+      setSymbolsForDropdown(symbolsForDropdown);
     };
   
     fetchDataOrRedirect();
@@ -62,7 +63,7 @@ export default function Test() {
       symbol: selectedSymbol,
       dir: direction,
       price: parseFloat(price).toFixed(2),
-      count: parseInt(count)
+      shares: parseInt(shares)
       // Include other parameters as needed
     }
     console.log(`Formatted price type: ${typeof body['price']}`);
@@ -84,7 +85,7 @@ export default function Test() {
     messages,
     startFetching,
     stopFetching
-  } = useManualServerSentEvents(`${process.env.NEXT_PUBLIC_BACKEND_URL}/stream`, {topics: ['etc', 'market']}, access_token ?? undefined);
+  } = useManualServerSentEvents(`${process.env.NEXT_PUBLIC_BACKEND_URL}/kafka_stream`, {symbols: symbols}, access_token ?? undefined);
 
   // Combine messages and replace '\n\n' with HTML line break '<br /><br />'
   const combinedMessages = useMemo(() => {
@@ -96,12 +97,12 @@ export default function Test() {
   }, [messages]);
 
   return (
-    <div>
+    <div className='m-6'>
       <div className="my-6">
         <Select
           components={animatedComponents}
           name="topics"
-          options={symbols}
+          options={symbolsForDropdown}
           className="basic-multi-select my-4"
           classNamePrefix="select"
           onChange={(newValue: any) => setselectedSymbol(newValue.value)}
@@ -130,13 +131,13 @@ export default function Test() {
         
         <Input 
           type="text" 
-          placeholder="Count" 
+          placeholder="# of Shares" 
           className='my-4'
-          value={count}
+          value={shares}
           onChange={(event) => {
-            const newCount = event.target.value;
-            if (newCount === '' || /^[0-9]+$/.test(newCount)) {
-              setCount(newCount);
+            const newShares = event.target.value;
+            if (newShares === '' || /^[0-9]+$/.test(newShares)) {
+              setShares(newShares);
             }
           }}
         />
@@ -155,7 +156,7 @@ export default function Test() {
         components={animatedComponents}
         isMulti
         name="topics"
-        options={symbols}
+        options={symbolsForDropdown}
         className="basic-multi-select2 my-4"
         classNamePrefix="select"
         onChange={(newValue: any) => {
@@ -178,7 +179,7 @@ export default function Test() {
       </button>
 
       <div className="container mx-auto py-10">
-        <DataTable columns={columns} data={messages as unknown as Transaction[]} />
+        <DataTable columns={transactionColumns} data={messages as unknown as Transaction[]} />
       </div>
 
       {/* <div className="mt-4 p-2 bg-gray-100 rounded shadow" dangerouslySetInnerHTML={{__html: combinedMessages}}/> */}

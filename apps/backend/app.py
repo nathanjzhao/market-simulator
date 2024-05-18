@@ -17,6 +17,7 @@ from datetime import datetime
 from dotenv import load_dotenv
 import os
 
+from backend.logic import OrderBook
 from backend.utils.auth import get_current_user
 from backend.utils.db import get_db, Base, engine
 from backend.utils.schema import DecimalEncoder, MarketRequestMessage
@@ -62,6 +63,8 @@ logging.basicConfig(format='%(asctime)s - %(levelname)s - %(message)s',
                     level=logging.INFO)
 log = logging.getLogger(__name__)
 
+orderbook = OrderBook()
+
 
 @app.on_event("startup")
 async def startup_event():
@@ -88,13 +91,27 @@ async def root():
 async def state():
     return {"state": _state}
 
-
 @app.get("/symbols")
 async def symbols(current_user: str = Depends(get_current_user)):
     return {"symbols" : SYMBOLS}
 
-@app.post("/stream")
-async def stream(symbols: List[str] = Body(default=["AAPL"]), current_user: str = Depends(get_current_user)):
+@app.post("/orderbook_stream")
+async def orderbook_stream(symbols: List[str] = Body(default=["AAPL"]), current_user: str = Depends(get_current_user)):
+    async def event_stream():
+        while True:
+            # Get the current state of the order book
+            orderbook_as_dict = orderbook.to_json()
+
+            # Send the current state of the order book to the client
+            yield f"data: {orderbook_as_dict}\n\n"
+
+            # Sleep for a bit to prevent busy-waiting
+            await asyncio.sleep(1)
+
+    return StreamingResponse(event_stream(), media_type="text/event-stream")
+
+@app.post("/kafka_stream")
+async def kafka_stream(symbols: List[str] = Body(default=["AAPL"]), current_user: str = Depends(get_current_user)):
     async def event_stream():
         old_state = _state
         while True:
@@ -108,7 +125,7 @@ async def stream(symbols: List[str] = Body(default=["AAPL"]), current_user: str 
  
 @app.post("/market_request")
 async def add_market_request(request: MarketRequestMessage, current_user: str = Depends(get_current_user)):
-    # Convert the request to a dict so it can be serialized to JSON
+    # Convert the request to a dict so it can be serialized to JSON)
     request_dict = request.dict()
 
     request_dict['op'] = 'Created'
@@ -117,6 +134,9 @@ async def add_market_request(request: MarketRequestMessage, current_user: str = 
     request_dict['user'] = current_user.username
 
     request_json = json.dumps(request_dict, cls=DecimalEncoder).encode('utf-8')
+    
+    fulfillments = orderbook.push(request_dict)
+    orderbook.process_fulfillments(fulfillments, producer)
 
     # Send the market request to a Kafka topic
     await producer.send_and_wait(KAFKA_TOPIC, request_json)

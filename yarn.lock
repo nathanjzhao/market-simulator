@@ -1401,6 +1401,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@types/lodash@npm:^4":
+  version: 4.17.4
+  resolution: "@types/lodash@npm:4.17.4"
+  checksum: 10c0/0124c64cb9fe7a0f78b6777955abd05ef0d97844d49118652eae45f8fa57bfb7f5a7a9bccc0b5a84c0a6dc09631042e4590cb665acb9d58dfd5e6543c75341ec
+  languageName: node
+  linkType: hard
+
 "@types/minimist@npm:^1.2.0":
   version: 1.2.5
   resolution: "@types/minimist@npm:1.2.5"
@@ -3152,6 +3159,7 @@ __metadata:
     "@radix-ui/react-select": "npm:^2.0.0"
     "@radix-ui/react-slot": "npm:^1.0.2"
     "@tanstack/react-table": "npm:^8.17.3"
+    "@types/lodash": "npm:^4"
     "@types/node": "npm:^20"
     "@types/react": "npm:^18"
     "@types/react-dom": "npm:^18"
@@ -3161,6 +3169,7 @@ __metadata:
     eslint: "npm:^8"
     eslint-config-next: "npm:14.2.3"
     joi: "npm:^17.13.1"
+    lodash: "npm:^4.17.21"
     lucide-react: "npm:^0.378.0"
     next: "npm:14.2.3"
     next-runtime-dotenv: "npm:^1.5.1"
@@ -4277,7 +4286,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"lodash@npm:^4.17.15":
+"lodash@npm:^4.17.15, lodash@npm:^4.17.21":
   version: 4.17.21
   resolution: "lodash@npm:4.17.21"
   checksum: 10c0/d8cbea072bb08655bb4c989da418994b073a608dffa608b09ac04b43a791b12aeae7cd7ad919aa4c925f33b48490b5cfe6c1f71d827956071dae2e7bb3a6b74c
