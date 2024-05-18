@@ -3,11 +3,10 @@ import { useManualServerSentEventsForRecent } from '@/hook/useManualServerSentEv
 import fetchData from '@/utils/fetchData';
 import { useRouter } from 'next/router';
 import React, { useEffect, useState } from 'react';
-import { orderbookColumns, OrderBookSymbol } from '@/components/columns';
+import { leaderboardColumns, LeaderboardRow } from '@/components/columns';
 
-export default function OrderBook() {
+export default function Leaderboard() {
     const router = useRouter();
-    const [symbols, setSymbols] = useState([]);
     const [symbolsForDropdown, setSymbolsForDropdown] = useState([]);
 
     let access_token: string | null | undefined;
@@ -23,14 +22,7 @@ export default function OrderBook() {
         if (!response.ok) {
           router.push('/');
         }
-  
-        const data = await response.json()
-        const symbolsForDropdown = data.symbols.map((symbol: string) => ({
-          value: symbol,
-          label: symbol.toUpperCase(),
-        }));
-        setSymbols(data.symbols);
-        setSymbolsForDropdown(symbolsForDropdown);
+
       };
     
       fetchDataOrRedirect();
@@ -40,7 +32,11 @@ export default function OrderBook() {
       messages,
       startFetching,
       stopFetching
-    } = useManualServerSentEventsForRecent(`${process.env.NEXT_PUBLIC_BACKEND_URL}/orderbook_stream`, {symbols: symbols}, access_token ?? undefined);
+    } = useManualServerSentEventsForRecent(`${process.env.NEXT_PUBLIC_BACKEND_URL}/leaderboard_stream`, {}, access_token ?? undefined);
+
+    useEffect(() => {
+      console.log(messages);
+    }, [messages]);
 
     // Render the order book data
     return (
@@ -60,22 +56,10 @@ export default function OrderBook() {
             </button>
           </div>
 
-          <div className="container mx-auto py-10 -full">
-            {Object.entries(messages).map(([symbol, data ]) => (
-              <div key={symbol}>
-                <h1 className="text-4xl font-bold">{symbol}</h1>
-                <div className="flex space-x-4 h-full">
-                  <div className="w-1/2">
-                    <h3>Asks</h3>
-                    <DataTable columns={orderbookColumns} data={(data as any).Asks as unknown as OrderBookSymbol[]} />
-                  </div>
-                  <div className="w-1/2">
-                    <h3>Bids</h3>
-                    <DataTable columns={orderbookColumns} data={(data as any).Bids as unknown as OrderBookSymbol[]} />
-                  </div>
-                </div>
-              </div>
-            ))}
+          <div className="container mx-auto py-10 -full justify-center items-center">
+            <div className="w-1/2">
+              <DataTable columns={leaderboardColumns} data={messages as unknown as LeaderboardRow[]} />
+            </div>
           </div>
 
       </div>

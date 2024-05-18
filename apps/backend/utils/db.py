@@ -3,6 +3,8 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.ext.declarative import declarative_base
 from dotenv import load_dotenv
+from sqlalchemy.orm.exc import NoResultFound
+from sqlalchemy.sql.elements import ClauseElement
 import os
 
 load_dotenv()
@@ -20,6 +22,14 @@ def get_db():
         yield db
     finally:
         db.close()
+
+def get_or_create(session, model, defaults=None, **kwargs):
+    try:
+        return session.query(model).filter_by(**kwargs).one(), False
+    except NoResultFound:
+        params = {k: v for k, v in kwargs.items() if not isinstance(v, ClauseElement)}
+        params.update(defaults or {})
+        return model(**params), True
 
 def test_connection(engine):
     try:

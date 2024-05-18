@@ -16,11 +16,13 @@ import logging
 from datetime import datetime
 from dotenv import load_dotenv
 import os
+from sqlalchemy import event
+from sqlalchemy.orm import Session
 
 from backend.logic import OrderBook
 from backend.utils.auth import get_current_user
 from backend.utils.db import get_db, Base, engine
-from backend.utils.schema import DecimalEncoder, MarketRequestMessage
+from backend.utils.schema import DecimalEncoder, Leaderboard, MarketRequestMessage
 from .user_routes import router as user_router
 
 
@@ -95,6 +97,47 @@ async def state():
 async def symbols(current_user: str = Depends(get_current_user)):
     return {"symbols" : SYMBOLS}
 
+
+# Global variable to store the current state of the leaderboard
+leaderboard_state = None
+
+# Event listener to update the leaderboard_state when the Leaderboard table changes
+@event.listens_for(Session, 'after_flush')
+def receive_after_flush(db: Session = Depends(get_db)):
+    global leaderboard_state
+    for instance in db.new:
+        if isinstance(instance, Leaderboard):
+            leaderboard_state = None  # Invalidate the leaderboard_state
+    for instance in db.dirty:
+        if isinstance(instance, Leaderboard):
+            leaderboard_state = None  # Invalidate the leaderboard_state
+    for instance in db.deleted:
+        if isinstance(instance, Leaderboard):
+            leaderboard_state = None  # Invalidate the leaderboard_state
+
+@app.post("/leaderboard_stream")
+async def leaderboard_stream(current_user: str = Depends(get_current_user), db: Session = Depends(get_db)):
+    async def event_stream():
+        global leaderboard_state
+
+        leaderboard_state = None
+        while True:
+            # If the leaderboard_state is None, it means the leaderboard has changed
+            if leaderboard_state is None:
+                # Get the current state of the leaderboard
+                leaderboard = db.query(Leaderboard).all()
+
+                # Convert each Leaderboard instance to a dictionary
+                leaderboard_state = [leader.to_dict() for leader in leaderboard]
+
+                # Send the current state of the leaderboard to the client
+                yield f"data: {json.dumps(leaderboard_state)}\n\n"
+
+            # Sleep for a bit to prevent busy-waiting
+            await asyncio.sleep(1)
+
+    return StreamingResponse(event_stream(), media_type="text/event-stream")
+
 @app.post("/orderbook_stream")
 async def orderbook_stream(symbols: List[str] = Body(default=["AAPL"]), current_user: str = Depends(get_current_user)):
     async def event_stream():
@@ -136,7 +179,7 @@ async def add_market_request(request: MarketRequestMessage, current_user: str = 
     request_json = json.dumps(request_dict, cls=DecimalEncoder).encode('utf-8')
     
     fulfillments = orderbook.push(request_dict)
-    orderbook.process_fulfillments(fulfillments, producer)
+    orderbook.process_fulfillments(fulfillments, producer, KAFKA_TOPIC)
 
     # Send the market request to a Kafka topic
     await producer.send_and_wait(KAFKA_TOPIC, request_json)

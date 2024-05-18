@@ -6,7 +6,7 @@ from decimal import Decimal, ROUND_DOWN
 from typing import Literal
 from sqlalchemy.ext.declarative import declarative_base
 
-Base = declarative_base()
+from backend.utils.db import Base
 
 class DecimalEncoder(json.JSONEncoder):
     def default(self, obj):
@@ -24,15 +24,17 @@ class User(Base):
     def __repr__(self):
         return "<User(username='%s')>" % (
                            self.username)
-
 class Leaderboard(Base):
     __tablename__ = "leaderboard"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey('users.id'))
+    username = Column(String, ForeignKey('users.username'))
     score = Column(Integer)
 
     user = relationship("User", back_populates="leaderboard")
+    
+    def to_dict(self):
+        return {c.name: getattr(self, c.name) for c in self.__table__.columns}
 
 User.leaderboard = relationship("Leaderboard", order_by=Leaderboard.id, back_populates="user")
 

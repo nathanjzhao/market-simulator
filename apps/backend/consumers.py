@@ -14,7 +14,6 @@ KAFKA_PASSWORD = os.getenv('KAFKA_PASSWORD')
 # global variables
 loop = asyncio.get_event_loop()
 
-
 async def consume():
     consumer = aiokafka.AIOKafkaConsumer(KAFKA_TOPIC, loop=loop,
                                          bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS,

@@ -42,14 +42,9 @@ export const transactionColumns: ColumnDef<Transaction>[] = [
 ]
 
 export type OrderBookSymbol = {
-  dir: string
-  id: string
-  op: string
-  count: string
-  price: string
-  symbol: string
-  timestamp: number
-  user: string
+  Price: string
+  Shares: string
+  Timestamp: number
 }
 
 export const orderbookColumns: ColumnDef<OrderBookSymbol>[] = [
@@ -66,3 +61,21 @@ export const orderbookColumns: ColumnDef<OrderBookSymbol>[] = [
     header: "Timestamp",
   },
 ]
+
+
+export type LeaderboardRow = {
+  username: string
+  score: number
+}
+
+export const leaderboardColumns: ColumnDef<LeaderboardRow>[] = [
+  {
+    accessorKey: "username",
+    header: "Username",
+  },
+  {
+    accessorKey: "score",
+    header: "Score",
+  },
+]
+
