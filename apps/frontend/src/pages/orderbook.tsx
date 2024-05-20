@@ -47,12 +47,14 @@ export default function OrderBook() {
       <div className="m-6">
         <div>
             <button 
+              id="start-fetching-orderbook"
               onClick={startFetching} 
               className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
             >
               Fetch Stream
             </button>
             <button 
+              id="stop-fetching-orderbook"
               onClick={stopFetching} 
               className="bg-purple-500 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded ml-4"
             >

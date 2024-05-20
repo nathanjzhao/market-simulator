@@ -24,7 +24,7 @@ export default function Login() {
       localStorage.setItem('access_token', data.access_token);
 
       console.log('Login successful', data);
-      router.push('/test');
+      router.push('/main_page');
     } else {
       // Registration failed
       console.log('Login failed', data);
@@ -36,13 +36,13 @@ export default function Login() {
       <form onSubmit={login}>
         <label>
           Username:
-          <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} />
+          <input id="username" type="text" value={username} onChange={(e) => setUsername(e.target.value)} />
         </label>
         <label>
           Password:
-          <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
+          <input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
         </label>
-        <button type="submit">Login</button>
+        <button id="submit" type="submit">Login</button>
       </form>
     </main>
   );

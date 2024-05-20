@@ -6,7 +6,7 @@ from decimal import Decimal, ROUND_DOWN
 from typing import Literal
 from sqlalchemy.ext.declarative import declarative_base
 
-from backend.utils.db import Base
+from backend.utils.db import Base, get_db
 
 class DecimalEncoder(json.JSONEncoder):
     def default(self, obj):
@@ -32,7 +32,7 @@ class Leaderboard(Base):
     score = Column(Integer)
 
     user = relationship("User", back_populates="leaderboard")
-    
+
     def to_dict(self):
         return {c.name: getattr(self, c.name) for c in self.__table__.columns}
 
@@ -47,3 +47,15 @@ class MarketRequestMessage(BaseModel):
     @validator('price', pre=True)
     def round_price(cls, v):
         return Decimal(v).quantize(Decimal('0.00'), rounding=ROUND_DOWN)
+
+if __name__ == "__main__":
+    def clear_leaderboard(session):
+        try:
+            session.query(Leaderboard).delete()
+            session.commit()
+            print("Leaderboard table cleared successfully.")
+        except Exception as e:
+            session.rollback()
+            print(f"Failed to clear Leaderboard table. Error: {e}")
+
+    clear_leaderboard(next(get_db()))

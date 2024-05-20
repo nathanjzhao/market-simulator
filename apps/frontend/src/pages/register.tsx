@@ -24,7 +24,7 @@ export default function Register() {
       localStorage.setItem('access_token', data.access_token);
 
       console.log('Registration successful', data);
-      router.push('/test');
+      router.push('/main_page');
     } else {
       // Registration failed
       console.log('Registration failed', data);

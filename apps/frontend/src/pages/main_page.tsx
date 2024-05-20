@@ -17,13 +17,13 @@ const dirOptions = [
   { value: 'SELL', label: 'SELL' },
 ];
 
-export default function Test() {
+export default function MainPage() {
   const router = useRouter();
   const [symbols, setSymbols] = useState([]);
   const [symbolsForDropdown, setSymbolsForDropdown] = useState([]);
 
   // Request making
-  const [selectedSymbol, setselectedSymbol] = useState([]);
+  const [selectedSymbol, setSelectedSymbol] = useState("");
   const [direction, setDirection] = useState(dirOptions[0].value);
   const [price, setPrice] = useState('');
   const [shares, setShares] = useState('');
@@ -87,36 +87,44 @@ export default function Test() {
     stopFetching
   } = useManualServerSentEvents(`${process.env.NEXT_PUBLIC_BACKEND_URL}/kafka_stream`, {symbols: symbols}, access_token ?? undefined);
 
-  // Combine messages and replace '\n\n' with HTML line break '<br /><br />'
-  const combinedMessages = useMemo(() => {
-    return messages.join('').replace(/\n\n/g, '<br /><br />');
-  }, [messages]);
+  // DEBUG
+  const handleButtonClick = () => {
+    setSelectedSymbol('APPL');
+  };
 
-  useEffect(() => {
-    console.log("inside messages!!", messages);  // Log the new message
-  }, [messages]);
+  const handleDirectionButtonClick = () => {
+    setDirection(prevDirection => prevDirection === 'BUY' ? 'SELL' : 'BUY');
+  };
 
   return (
     <div className='m-6'>
       <div className="my-6">
+
+        <button onClick={handleButtonClick}>Set Symbol to APPL</button>
+        <button onClick={handleDirectionButtonClick}>Toggle Direction from {direction}</button>
+
         <Select
+          id="symbols-selector"
           components={animatedComponents}
-          name="topics"
+          name="symbols"
           options={symbolsForDropdown}
           className="basic-multi-select my-4"
           classNamePrefix="select"
-          onChange={(newValue: any) => setselectedSymbol(newValue.value)}
+          onChange={(newValue: any) => setSelectedSymbol(newValue.value)}
         />
         
         <Select
+          id="direction-selector"
+          components={animatedComponents}
           name="direction"
           options={dirOptions}
           className="basic-single"
           classNamePrefix="select"
-          onChange={(selectedOption) => setDirection(selectedOption!.value)}
+          onChange={(selectedOption: any) => setDirection(selectedOption!.value)}
         />
 
         <Input 
+          id="price"
           type="text" 
           placeholder="Price" 
           className='my-4'
@@ -130,6 +138,7 @@ export default function Test() {
         />
         
         <Input 
+          id="shares"
           type="text" 
           placeholder="# of Shares" 
           className='my-4'
@@ -143,6 +152,7 @@ export default function Test() {
         />
 
         <button 
+          id="make-request"
           onClick={makeRequest} 
           className="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded"
         >
@@ -166,12 +176,14 @@ export default function Test() {
       />
 
       <button 
+        id="start-fetching-kafka"
         onClick={startFetching} 
         className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
       >
         Fetch Stream
       </button>
       <button 
+        id="stop-fetching-kafka"
         onClick={stopFetching} 
         className="bg-purple-500 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded ml-4"
       >

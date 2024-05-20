@@ -103,15 +103,16 @@ leaderboard_state = None
 
 # Event listener to update the leaderboard_state when the Leaderboard table changes
 @event.listens_for(Session, 'after_flush')
-def receive_after_flush(db: Session = Depends(get_db)):
+def receive_after_flush(session, flush_context):
+    log.info(f"Received after_flush event: {flush_context}")
     global leaderboard_state
-    for instance in db.new:
+    for instance in session.new:
         if isinstance(instance, Leaderboard):
             leaderboard_state = None  # Invalidate the leaderboard_state
-    for instance in db.dirty:
+    for instance in session.dirty:
         if isinstance(instance, Leaderboard):
             leaderboard_state = None  # Invalidate the leaderboard_state
-    for instance in db.deleted:
+    for instance in session.deleted:
         if isinstance(instance, Leaderboard):
             leaderboard_state = None  # Invalidate the leaderboard_state
 
