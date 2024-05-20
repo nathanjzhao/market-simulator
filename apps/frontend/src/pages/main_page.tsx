@@ -100,9 +100,24 @@ export default function MainPage() {
     <div className='m-6'>
       <div className="my-6">
 
-        <button onClick={handleButtonClick}>Set Symbol to APPL</button>
-        <button onClick={handleDirectionButtonClick}>Toggle Direction from {direction}</button>
+        {/* FOR TESTING */}
+        <button 
+          id="set-symbol-appl"
+          onClick={handleButtonClick} 
+          className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded"
+        >
+          Set Symbol to APPL
+        </button>
 
+        <button 
+          id="toggle-direction"
+          onClick={handleDirectionButtonClick} 
+          className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded ml-4"
+        >
+          Toggle Direction from {direction}
+        </button>
+
+        {/* MAKE REQUEST */}
         <Select
           id="symbols-selector"
           components={animatedComponents}
@@ -161,6 +176,7 @@ export default function MainPage() {
 
       </div>
 
+      {/* MARKET VIEW */}
       <Select
         // closeMenuOnSelect={false}
         components={animatedComponents}
