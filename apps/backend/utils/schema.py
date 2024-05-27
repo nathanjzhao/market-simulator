@@ -1,6 +1,7 @@
 import json
 import os
 from dotenv import load_dotenv
+from sqlalchemy.ext.mutable import MutableDict
 from sqlalchemy import Column, Integer, String, ForeignKey, PickleType
 from sqlalchemy.orm import relationship
 from pydantic import BaseModel, validator
@@ -37,7 +38,7 @@ class Leaderboard(Base):
     user_id = Column(Integer, ForeignKey('users.id'))
     username = Column(String)
     score = Column(Integer, default=0)
-    symbols = Column(PickleType, default=initial_symbols)
+    symbols = Column(MutableDict.as_mutable(PickleType), default=initial_symbols)
 
     user = relationship("User", back_populates="leaderboard")
 

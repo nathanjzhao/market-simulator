@@ -3,7 +3,7 @@ import time
 from typing import Dict, Set, Any, List
 import uuid
 
-from fastapi import Depends, FastAPI, Request, Response, Query, Body, HTTPException
+from fastapi import Depends, FastAPI, Request, Response, Query, Body, HTTPException, UploadFile, File
 from fastapi.responses import StreamingResponse 
 from fastapi.middleware.cors import CORSMiddleware
 from kafka import TopicPartition
@@ -11,6 +11,7 @@ from aiokafka.helpers import create_ssl_context
 
 import aiokafka
 import asyncio
+from asyncio import Queue
 import json
 import logging
 from dotenv import load_dotenv
@@ -24,6 +25,8 @@ from backend.utils.auth import get_current_user
 from backend.utils.db import get_db, Base, engine
 from backend.utils.schema import DecimalEncoder, Leaderboard, MarketRequestMessage
 from .user_routes import router as user_router
+
+from RestrictedPython import compile_restricted, safe_globals
 
 load_dotenv()
 
@@ -48,7 +51,7 @@ app.add_middleware(
 consumer_task = None
 consumer = None
 producer = None
-_state = 0
+event_queue = Queue() # Event queue before loading into kafka topic
 
 # env variables
 KAFKA_TOPIC = os.getenv('KAFKA_TOPIC')
@@ -64,8 +67,8 @@ logging.basicConfig(format='%(asctime)s - %(levelname)s - %(message)s',
                     level=logging.INFO)
 log = logging.getLogger(__name__)
 
+# Orderbook instance
 orderbook = OrderBook()
-
 
 @app.on_event("startup")
 async def startup_event():
@@ -73,7 +76,6 @@ async def startup_event():
     Base.metadata.create_all(bind=engine)
     await initialize()
     await consume()
-
 
 @app.on_event("shutdown")
 async def shutdown_event():
@@ -90,7 +92,7 @@ async def root():
 
 @app.get("/state")
 async def state():
-    return {"state": _state}
+    return {"state": str(event_queue)}
 
 @app.get("/symbols")
 async def symbols(current_user: str = Depends(get_current_user)):
@@ -156,15 +158,15 @@ async def orderbook_stream(symbols: List[str] = Body(default=["AAPL"]), current_
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")
 
+
 @app.post("/kafka_stream")
 async def kafka_stream(symbols: List[str] = Body(default=["AAPL"]), current_user: str = Depends(get_current_user)):
     async def event_stream():
-        old_state = _state
+        global event_queue
         while True:
-            if old_state != _state:
-            # if old_state != _state and _state['topic'] in topics:
-                old_state = _state
-                yield f'data: {_state}\n\n'
+            if not event_queue.empty():
+                state = await event_queue.get()
+                yield f'data: {state}\n\n'
             await asyncio.sleep(1)  # Sleep for a bit to prevent busy-waiting
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")
@@ -182,14 +184,36 @@ async def add_market_request(request: MarketRequestMessage, current_user: str = 
 
     log_variables(request_dict=request_dict, current_user=current_user)
     request_json = json.dumps(request_dict, cls=DecimalEncoder).encode('utf-8')
+
+    # Send the market request to a Kafka topic
+    await producer.send_and_wait(KAFKA_TOPIC, request_json)
     
     fulfillments = orderbook.push(request_dict)
     await orderbook.process_fulfillments(fulfillments, producer, KAFKA_TOPIC)
 
-    # Send the market request to a Kafka topic
-    await producer.send_and_wait(KAFKA_TOPIC, request_json)
 
     return {"message": "Market request added", "request": request_dict}
+
+@app.post("/run_code")
+async def run_code(file: UploadFile = File(...), current_user: str = Depends(get_current_user)):
+    # Read the contents of the file
+    code = await file.read()
+
+    # Compile the code
+    byte_code = compile_restricted(code, filename='<inline code>', mode='exec')
+
+    # Define a dictionary to serve as the local namespace for the code
+    local_namespace = {}
+
+    # Define a dictionary to serve as the global namespace for the code
+    global_namespace = safe_globals.copy()
+    # global_namespace['helper_function'] = helper_function
+
+    # Run the code
+    exec(byte_code, global_namespace, local_namespace)
+
+    # Return the local namespace so you can inspect the results
+    return local_namespace
     
 async def initialize():
     producer_loop = asyncio.get_event_loop()
@@ -269,7 +293,7 @@ async def send_consumer_message(consumer):
 def _update_state(message: Any) -> None:
     if message.value:
         value = json.loads(message.value)
-        global _state
-        _state = value
+        global event_queue
+        event_queue.put_nowait(value)
     else:
         log.warning("Received empty message")

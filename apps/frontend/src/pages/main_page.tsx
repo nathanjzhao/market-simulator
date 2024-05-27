@@ -80,6 +80,30 @@ export default function MainPage() {
     // Handle the response data
     console.log(data);
   };
+
+  async function handleFileUpload(event:  React.ChangeEvent<HTMLInputElement> ) {
+    const file = event.target.files && event.target.files[0];
+    if (file) {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetchData(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/run_code`,
+        'POST',
+        formData,
+        access_token,
+        'multipart/form-data'
+      );
+
+      if (!response.ok) {
+        console.error('Error:', response.statusText);
+        return;
+      }
+  
+      const data = await response.json();
+      console.log(data);
+    }
+  }
   
   const {
     messages,
@@ -89,7 +113,7 @@ export default function MainPage() {
 
   // DEBUG
   const handleButtonClick = () => {
-    setSelectedSymbol('APPL');
+    setSelectedSymbol('AAPL');
   };
 
   const handleDirectionButtonClick = () => {
@@ -102,11 +126,11 @@ export default function MainPage() {
 
         {/* FOR TESTING */}
         <button 
-          id="set-symbol-appl"
+          id="set-symbol-aapl"
           onClick={handleButtonClick} 
           className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded"
         >
-          Set Symbol to APPL
+          Set Symbol to AAPL
         </button>
 
         <button 
@@ -174,6 +198,26 @@ export default function MainPage() {
           Make Request
         </button>
 
+      </div>
+
+      {/* CODE UPLOAD */}
+
+      <div className="my-4">
+        <label 
+          htmlFor="python-file"
+          className="block text-sm font-medium text-gray-700"
+        >
+          Upload Python File
+        </label>
+        <div className="mt-1 flex rounded-md shadow-sm">
+          <input 
+            id="python-file"
+            type="file" 
+            accept=".py"
+            onChange={handleFileUpload}
+            className="focus:ring-indigo-500 focus:border-indigo-500 flex-grow sm:text-sm sm:leading-5"
+          />
+        </div>
       </div>
 
       {/* MARKET VIEW */}

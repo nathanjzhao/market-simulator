@@ -3,6 +3,7 @@ import logging
 import heapq
 from collections import defaultdict
 
+from backend.utils.logging import log_variables
 from backend.utils.schema import DecimalEncoder, Leaderboard, User
 from backend.utils.db import get_db, get_or_create
 
@@ -103,10 +104,19 @@ class OrderBook:
                 ask['op'], ask['shares'] = 'Cancelled', shares
 
                 bid_request_json = json.dumps(bid, cls=DecimalEncoder).encode('utf-8')
-                ask_request_json = json.dumps(bid, cls=DecimalEncoder).encode('utf-8')
+                ask_request_json = json.dumps(ask, cls=DecimalEncoder).encode('utf-8')
 
-                await kafka_producer.send_and_wait(KAFKA_TOPIC, bid_request_json)
-                await kafka_producer.send_and_wait(KAFKA_TOPIC, ask_request_json)
+                try:
+                    bid_request_json = json.dumps(bid, cls=DecimalEncoder).encode('utf-8')
+                    ask_request_json = json.dumps(ask, cls=DecimalEncoder).encode('utf-8')
+                except Exception as e:
+                    log_variables(error=e)
+
+                try:
+                    await kafka_producer.send_and_wait(KAFKA_TOPIC, bid_request_json)
+                    await kafka_producer.send_and_wait(KAFKA_TOPIC, ask_request_json)
+                except Exception as e:
+                    log_variables(error=e)
         
             # Get or create the user from the leaderboard for the bid
             bid_user, created = get_or_create(db, Leaderboard, defaults={'username' : bid['user'], 'user_id': bid['user_id']}, username=bid['user'])
@@ -126,6 +136,8 @@ class OrderBook:
 
             bid_user.symbols[bid['symbol']] += shares
             ask_user.symbols[ask['symbol']] -= shares
+            db.is_modified(bid_user, include_collections=True)
+            db.is_modified(ask_user, include_collections=True)
 
         # Commit the changes to the database
         db.commit()
