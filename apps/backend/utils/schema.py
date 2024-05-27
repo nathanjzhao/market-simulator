@@ -1,12 +1,18 @@
 import json
-from sqlalchemy import Column, Integer, String, ForeignKey 
+import os
+from dotenv import load_dotenv
+from sqlalchemy import Column, Integer, String, ForeignKey, PickleType
 from sqlalchemy.orm import relationship
 from pydantic import BaseModel, validator
 from decimal import Decimal, ROUND_DOWN
 from typing import Literal
-from sqlalchemy.ext.declarative import declarative_base
 
 from backend.utils.db import Base, get_db
+
+load_dotenv()
+
+SYMBOLS = os.getenv('SYMBOLS').split(',')
+initial_symbols = {symbol: 0 for symbol in SYMBOLS}
 
 class DecimalEncoder(json.JSONEncoder):
     def default(self, obj):
@@ -28,8 +34,10 @@ class Leaderboard(Base):
     __tablename__ = "leaderboard"
 
     id = Column(Integer, primary_key=True, index=True)
-    username = Column(String, ForeignKey('users.username'))
-    score = Column(Integer)
+    user_id = Column(Integer, ForeignKey('users.id'))
+    username = Column(String)
+    score = Column(Integer, default=0)
+    symbols = Column(PickleType, default=initial_symbols)
 
     user = relationship("User", back_populates="leaderboard")
 

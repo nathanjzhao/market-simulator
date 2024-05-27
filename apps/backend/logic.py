@@ -6,6 +6,7 @@ from collections import defaultdict
 from backend.utils.schema import DecimalEncoder, Leaderboard, User
 from backend.utils.db import get_db, get_or_create
 
+
 logging.basicConfig(level=logging.INFO)
 db = next(get_db())
 
@@ -97,30 +98,34 @@ class OrderBook:
     async def process_fulfillments(self, fulfillments, kafka_producer, KAFKA_TOPIC):
         for bid, ask, shares in fulfillments:
 
-            log.info(f"bid: {bid}, \n\n ask: {ask},\n\n shares: {shares}")   
             if bid['user'] == ask['user']:
-                bid['op'] = 'Cancelled'
-                ask['op'] = 'Cancelled'
-                await kafka_producer.send(KAFKA_TOPIC, bid)
-                await kafka_producer.send(KAFKA_TOPIC, ask)
-                continue
+                bid['op'], bid['shares'] = 'Cancelled', shares
+                ask['op'], ask['shares'] = 'Cancelled', shares
+
+                bid_request_json = json.dumps(bid, cls=DecimalEncoder).encode('utf-8')
+                ask_request_json = json.dumps(bid, cls=DecimalEncoder).encode('utf-8')
+
+                await kafka_producer.send_and_wait(KAFKA_TOPIC, bid_request_json)
+                await kafka_producer.send_and_wait(KAFKA_TOPIC, ask_request_json)
         
             # Get or create the user from the leaderboard for the bid
-            bid_user, created = get_or_create(db, Leaderboard, defaults={'score': 0, 'username' : bid['user']}, username=bid['user'])
+            bid_user, created = get_or_create(db, Leaderboard, defaults={'username' : bid['user'], 'user_id': bid['user_id']}, username=bid['user'])
             if created:
                 db.add(bid_user)
                 db.commit()
 
             # Get or create the user from the leaderboard for the ask
-            
-            ask_user, created = get_or_create(db, Leaderboard, defaults={'score': 0, 'username' : ask['user']}, username=ask['user'])
+            ask_user, created = get_or_create(db, Leaderboard, defaults={'username' : ask['user'], 'user_id': ask['user_id']}, username=ask['user'])
             if created:
                 db.add(ask_user)
                 db.commit()
 
             # Update scores
-            bid_user.score += float(shares * bid['price'])
+            bid_user.score -= float(shares * bid['price'])
             ask_user.score += float(shares * ask['price'])
+
+            bid_user.symbols[bid['symbol']] += shares
+            ask_user.symbols[ask['symbol']] -= shares
 
         # Commit the changes to the database
         db.commit()

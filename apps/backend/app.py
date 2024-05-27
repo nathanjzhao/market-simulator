@@ -13,18 +13,17 @@ import aiokafka
 import asyncio
 import json
 import logging
-from datetime import datetime
 from dotenv import load_dotenv
 import os
 from sqlalchemy import event
 from sqlalchemy.orm import Session
 
 from backend.logic import OrderBook
+from backend.utils.logging import log_variables
 from backend.utils.auth import get_current_user
 from backend.utils.db import get_db, Base, engine
 from backend.utils.schema import DecimalEncoder, Leaderboard, MarketRequestMessage
 from .user_routes import router as user_router
-
 
 load_dotenv()
 
@@ -134,6 +133,9 @@ async def leaderboard_stream(current_user: str = Depends(get_current_user), db: 
                 # Send the current state of the leaderboard to the client
                 yield f"data: {json.dumps(leaderboard_state)}\n\n"
 
+                # Expires db so not cached
+                db.expire_all()
+
             # Sleep for a bit to prevent busy-waiting
             await asyncio.sleep(1)
 
@@ -173,14 +175,16 @@ async def add_market_request(request: MarketRequestMessage, current_user: str = 
     request_dict = request.dict()
 
     request_dict['op'] = 'Created'
-    request_dict['id'] = str(uuid.uuid4())
+    request_dict['user_id'] = current_user.id
+    request_dict['order_id'] = str(uuid.uuid4())
     request_dict['timestamp'] = int(time.time())
     request_dict['user'] = current_user.username
 
+    log_variables(request_dict=request_dict, current_user=current_user)
     request_json = json.dumps(request_dict, cls=DecimalEncoder).encode('utf-8')
     
     fulfillments = orderbook.push(request_dict)
-    orderbook.process_fulfillments(fulfillments, producer, KAFKA_TOPIC)
+    await orderbook.process_fulfillments(fulfillments, producer, KAFKA_TOPIC)
 
     # Send the market request to a Kafka topic
     await producer.send_and_wait(KAFKA_TOPIC, request_json)

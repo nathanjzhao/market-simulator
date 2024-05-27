@@ -68,6 +68,7 @@ export type LeaderboardRow = {
   score: number
 }
 
+
 export const leaderboardColumns: ColumnDef<LeaderboardRow>[] = [
   {
     accessorKey: "username",
@@ -76,6 +77,6 @@ export const leaderboardColumns: ColumnDef<LeaderboardRow>[] = [
   {
     accessorKey: "score",
     header: "Score",
-  },
+  }
 ]
 

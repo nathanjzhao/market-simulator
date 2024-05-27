@@ -16,6 +16,6 @@
       "@/*": ["./src/*"]
     }
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", "src/tests/market_request.test.js"],
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", "src/tests/market_request.test.js", "src/pages/leaderboard.jsx"],
   "exclude": ["node_modules"]
 }

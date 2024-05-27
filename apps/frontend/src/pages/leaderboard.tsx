@@ -8,6 +8,7 @@ import { leaderboardColumns, LeaderboardRow } from '@/components/columns';
 export default function Leaderboard() {
     const router = useRouter();
     const [symbolsForDropdown, setSymbolsForDropdown] = useState([]);
+    const [tableMessage, setTableMessage] = useState([]);
 
     let access_token: string | null | undefined;
     if (typeof window !== 'undefined') {
@@ -58,7 +59,10 @@ export default function Leaderboard() {
 
           <div className="container mx-auto py-10 -full justify-center items-center">
             <div className="w-1/2">
-              <DataTable columns={leaderboardColumns} data={messages as unknown as LeaderboardRow[]} />
+              <DataTable 
+                columns={leaderboardColumns} 
+                data={messages as unknown as LeaderboardRow[]} 
+              />
             </div>
           </div>
 

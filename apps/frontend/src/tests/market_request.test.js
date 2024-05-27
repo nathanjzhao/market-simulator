@@ -1,5 +1,9 @@
 const puppeteer = require('puppeteer');
 
+function wait(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 describe('Login Test', () => {
   let browser1;
   let browser2;
@@ -61,36 +65,29 @@ describe('Login Test', () => {
 
     await page1.click('#start-fetching-kafka');
 
-    // Make request
-    // Click on the combobox
-    await page1.click('[role="combobox"]');
-    await page1.waitForSelector('#react-select-2-live-region');
-    const options = await page1.$$('#react-select-2-listbox [id^="react-select-2-option"]');
-    if (options.length !== 10) {
-      throw new Error('Expected 10 options, but found ' + options.length);
-    }
-
-    const optionText = await page1.evaluate(el => el.textContent, options[3]);
-
-    if (optionText !== 'Option 4') {
-      throw new Error('Expected the text of the 4th option to be "Option 4", but it was "' + optionText + '"');
-    }
-
-    await page1.click('#symbols-selector');
-    await page1.type('#symbols-selector', 'BUY');
+    // buy AAPL from page1
+    await page1.click('#set-symbol-appl');
     await page1.type('#price', '100.00');
     await page1.type('#shares', '30');
     await page1.click('#make-request');
     
+    await wait(3000)
     await page1.screenshot({ path: 'src/tests/screenshots/screenshot1.png' })
 
-    // await page1.goto('http://localhost:3000/orderbook')
-    // await page1.waitForNavigation();
+    // go to orderbook
+    await page1.goto('http://localhost:3000/orderbook');
+    await page1.click('#start-fetching-orderbook')
 
-    // await page1.click('#start-fetching-orderbook');
+    // sell APPL from page2
+    await page2.click('#set-symbol-appl');
+    await page2.click('#toggle-direction')
+    await page2.type('#price', '100.00');
+    await page2.type('#shares', '20');
+    await page2.click('#make-request');
 
-    // await new Promise(resolve => setTimeout(resolve, 3000));
+    await wait(3000)
+    await page1.screenshot({ path: 'src/tests/screenshots/screenshot2.png' })
 
 
-  }, 10000);
+  }, 20000);
 });
