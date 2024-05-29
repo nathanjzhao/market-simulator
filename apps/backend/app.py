@@ -1,6 +1,6 @@
 from random import randint
 import time
-from typing import Dict, Set, Any, List
+from typing import Dict, Set, Any, List, Union
 import uuid
 
 from fastapi import Depends, FastAPI, Request, Response, Query, Body, HTTPException, UploadFile, File
@@ -20,13 +20,14 @@ from sqlalchemy import event
 from sqlalchemy.orm import Session
 
 from backend.logic import OrderBook
+from backend.utils.code_tooling import buy, cancel_order, get_order, get_orders, get_symbols, sell
 from backend.utils.logging import log_variables
 from backend.utils.auth import get_current_user
 from backend.utils.db import get_db, Base, engine
 from backend.utils.schema import DecimalEncoder, Leaderboard, MarketRequestMessage
 from .user_routes import router as user_router
 
-from RestrictedPython import compile_restricted, safe_globals
+from RestrictedPython import safe_builtins, compile_restricted, safe_globals
 
 load_dotenv()
 
@@ -186,10 +187,10 @@ async def add_market_request(request: MarketRequestMessage, current_user: str = 
     request_json = json.dumps(request_dict, cls=DecimalEncoder).encode('utf-8')
 
     # Send the market request to a Kafka topic
-    await producer.send_and_wait(KAFKA_TOPIC, request_json)
+    asyncio.create_task(producer.send_and_wait(KAFKA_TOPIC, request_json))
     
     fulfillments = orderbook.push(request_dict)
-    await orderbook.process_fulfillments(fulfillments, producer, KAFKA_TOPIC)
+    asyncio.create_task(orderbook.process_fulfillments(fulfillments, producer, KAFKA_TOPIC))
 
 
     return {"message": "Market request added", "request": request_dict}
@@ -197,17 +198,25 @@ async def add_market_request(request: MarketRequestMessage, current_user: str = 
 @app.post("/run_code")
 async def run_code(file: UploadFile = File(...), current_user: str = Depends(get_current_user)):
     # Read the contents of the file
-    code = await file.read()
+    code_bytes = await file.read()
+
+    code = code_bytes.decode('utf-8')
 
     # Compile the code
     byte_code = compile_restricted(code, filename='<inline code>', mode='exec')
+    
 
     # Define a dictionary to serve as the local namespace for the code
     local_namespace = {}
 
     # Define a dictionary to serve as the global namespace for the code
     global_namespace = safe_globals.copy()
-    # global_namespace['helper_function'] = helper_function
+    global_namespace['buy'] = lambda symbol, amount, price: buy(orderbook, current_user, symbol, amount, price, producer, KAFKA_TOPIC)
+    global_namespace['sell'] = lambda symbol, amount, price: sell(orderbook, current_user, symbol, amount, price, producer, KAFKA_TOPIC)
+    global_namespace['cancel_order'] = lambda order_id: cancel_order(orderbook, current_user, order_id)
+    global_namespace['get_order'] = lambda order_id: get_order(orderbook, current_user, order_id)
+    global_namespace['get_orders'] = lambda: get_orders(orderbook, current_user)
+    global_namespace['get_symbols'] = lambda: get_symbols(orderbook, current_user)
 
     # Run the code
     exec(byte_code, global_namespace, local_namespace)

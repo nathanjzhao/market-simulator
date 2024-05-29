@@ -36,17 +36,6 @@ class OrderBook:
 
         return self.fulfill(symbol)
 
-    def pop(self, symbol, request_type):
-        # Get the next request from the appropriate queue
-        if request_type == 'BUY' and self.bid_queues[symbol]:
-            _, _, request = heapq.heappop(self.bid_queues[symbol])
-            return request
-        elif request_type == 'SELL' and self.ask_queues[symbol]:
-            _, _, request = heapq.heappop(self.ask_queues[symbol])
-            return request
-        else:
-            return None
-
     def peek(self, symbol, request_type):
         # Get the highest priority request from the appropriate queue without removing it
         if request_type == 'BUY' and self.bid_queues[symbol]:
@@ -96,6 +85,26 @@ class OrderBook:
             else:
                 return None
     
+    def cancel_order(self, symbol, user_id, order_id):
+        # Check both the bid and ask queues for the order
+        for queue in [self.bid_queues[symbol], self.ask_queues[symbol]]:
+            for i in range(len(queue)):
+                _, _, order = queue[i]
+                if order['order_id'] == order_id and order['user_id'] == user_id:
+                    # Remove the order from the queue
+                    del queue[i]
+                    return True
+        return False
+    
+    def get_order(self, symbol, user_id, order_id):
+        # Check both the bid and ask queues for the order
+        for queue in [self.bid_queues[symbol], self.ask_queues[symbol]]:
+            for i in range(len(queue)):
+                _, _, order = queue[i]
+                if order['order_id'] == order_id and order['user_id'] == user_id:
+                    return order, True
+        return None, False
+        
     async def process_fulfillments(self, fulfillments, kafka_producer, KAFKA_TOPIC):
         for bid, ask, shares in fulfillments:
 

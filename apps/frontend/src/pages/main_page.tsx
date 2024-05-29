@@ -21,6 +21,7 @@ export default function MainPage() {
   const router = useRouter();
   const [symbols, setSymbols] = useState([]);
   const [symbolsForDropdown, setSymbolsForDropdown] = useState([]);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
   // Request making
   const [selectedSymbol, setSelectedSymbol] = useState("");
@@ -66,7 +67,6 @@ export default function MainPage() {
       shares: parseInt(shares)
       // Include other parameters as needed
     }
-    console.log(`Formatted price type: ${typeof body['price']}`);
 
     const response = await fetchData(`${process.env.NEXT_PUBLIC_BACKEND_URL}/market_request`,'POST', body, access_token, 'application/json');
   
@@ -83,9 +83,17 @@ export default function MainPage() {
 
   async function handleFileUpload(event:  React.ChangeEvent<HTMLInputElement> ) {
     const file = event.target.files && event.target.files[0];
-    if (file) {
+    setSelectedFile(file);
+  }
+
+  async function handleSubmit(event: React.FormEvent) {
+    event.preventDefault();
+  
+    if (selectedFile) {
       const formData = new FormData();
-      formData.append('file', file);
+      formData.append('file', selectedFile);
+
+      console.log(`File: ${selectedFile.name}`);
 
       const response = await fetchData(
         `${process.env.NEXT_PUBLIC_BACKEND_URL}/run_code`,
@@ -94,6 +102,8 @@ export default function MainPage() {
         access_token,
         'multipart/form-data'
       );
+
+      console.log(response);
 
       if (!response.ok) {
         console.error('Error:', response.statusText);
@@ -201,24 +211,34 @@ export default function MainPage() {
       </div>
 
       {/* CODE UPLOAD */}
-
-      <div className="my-4">
-        <label 
-          htmlFor="python-file"
-          className="block text-sm font-medium text-gray-700"
-        >
-          Upload Python File
-        </label>
-        <div className="mt-1 flex rounded-md shadow-sm">
-          <input 
-            id="python-file"
-            type="file" 
-            accept=".py"
-            onChange={handleFileUpload}
-            className="focus:ring-indigo-500 focus:border-indigo-500 flex-grow sm:text-sm sm:leading-5"
-          />
+      <form onSubmit={handleSubmit}>
+        <div className="my-4">
+          <label 
+            htmlFor="python-file"
+            className="block text-sm font-medium text-gray-700"
+          >
+            Upload Python File
+          </label>
+          
+          <div className="mt-1 flex rounded-md shadow-sm">
+            <input 
+              id="python-file"
+              type="file" 
+              accept=".py"
+              onChange={handleFileUpload}
+              className="hidden" // Hide the default file input
+            />
+            <label 
+              htmlFor="python-file" 
+              className="focus:ring-indigo-500 focus:border-indigo-500 flex-grow sm:text-sm sm:leading-5 py-2 px-3 rounded-md shadow-sm cursor-pointer"
+            >
+              Choose File
+            </label>
+          </div>
         </div>
-      </div>
+
+        <button type="submit">Upload</button>
+      </form>
 
       {/* MARKET VIEW */}
       <Select
