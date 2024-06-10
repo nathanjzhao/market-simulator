@@ -24,7 +24,7 @@ SQLALCHEMY_DATABASE_URL=sqlite:///./backend/sql_app.db (example)
 JWT_SECRET=some-jwt-secret
 ```
 
-You will also need to setup other environmental and an Upstash instance for Apache Kafka
+You will also need to setup other environmental and an Upstash instance for Apache Kafka. Then, simply `yarn dev` in the project root directory to start.
 
 
 # TODO
@@ -32,3 +32,5 @@ You will also need to setup other environmental and an Upstash instance for Apac
 - [ ] Create more trading bot example scripts in `frontend/public`
 - [ ] Create documentation (with Sphinx?) for `backend/utils/code_tooling`
 - [ ] Keep track of fair value when tracking leaderboard with decaying average of recent trades + allow shorting (negative shares)
+
+... and a lot of other random ideas too. 
