@@ -20,10 +20,19 @@ class OrderBook:
     def __init__(self):
         self.bid_queues = defaultdict(list) # highest price is best
         self.ask_queues = defaultdict(list) # lowest price is best
+        self.user_order_counts = defaultdict(int) # count of orders per user
+        self.max_orders_per_user = 10
 
     def push(self, request):
+        user_id = request['user_id']
         symbol = request['symbol']
         request_type = request['dir']
+
+        # Check if the user has reached their limit
+        if self.user_order_counts[user_id] >= self.max_orders_per_user:
+            log.info(f"User with id {user_id} has reached the maximum number of orders ({self.max_orders_per_user}).")
+            return None
+
         # Add the request to the appropriate queue
         if request_type == 'BUY':
             price_priority = request['price'] 
@@ -33,6 +42,9 @@ class OrderBook:
             price_priority = request['price']
             time_priority = request['timestamp'] 
             heapq.heappush(self.ask_queues[symbol], (price_priority, time_priority, request))
+
+        # Increment the user's order count
+        self.user_order_counts[user_id] += 1
 
         return self.fulfill(symbol)
 
@@ -74,11 +86,13 @@ class OrderBook:
                 bid['shares'] -= shares
                 ask['shares'] -= shares
 
-                # If a bid or ask has been completely fulfilled, remove it from the queue
+                # If a bid or ask has been completely fulfilled, remove it from the queue and decrease the user's order count
                 if bid['shares'] == 0:
                     heapq.heappop(self.bid_queues[symbol])
+                    self.user_order_counts[bid['user_id']] -= 1
                 if ask['shares'] == 0:
                     heapq.heappop(self.ask_queues[symbol])
+                    self.user_order_counts[ask['user_id']] -= 1
 
                 # Return the matching bid, ask, and the number of shares exchanged
                 return bid, ask, shares
@@ -93,6 +107,9 @@ class OrderBook:
                 if order['order_id'] == order_id and order['user_id'] == user_id:
                     # Remove the order from the queue
                     del queue[i]
+
+                    # Decrease the user's order count
+                    self.user_order_counts[user_id] -= 1
                     return True
         return False
     
